@@ -19,10 +19,14 @@ export const DEFAULT_PHYSICS: PhysicsConfig = {
 
 export function computeLiftCoeff(fold: PaperPlaneFold, wingAngleDeg: number, pitchDeg: number): number {
   const effAngle = wingAngleDeg + pitchDeg;
+  const absEff = Math.abs(effAngle);
   const optimal = 15;
   const deviation = Math.abs(effAngle - optimal);
   const gaussian = Math.exp(-(deviation * deviation) / (2 * 18 * 18));
-  const stallPenalty = Math.abs(pitchDeg) > 45 ? 0.35 : 1;
+  const stallAngle = 20;
+  const stallPenalty = absEff <= stallAngle
+    ? 1
+    : Math.max(0.2, 1 - 0.8 * Math.min(1, (absEff - stallAngle) / 30));
   return fold.baseLiftCoeff * (0.4 + 0.9 * gaussian) * stallPenalty;
 }
 
@@ -30,7 +34,11 @@ export function computeDragCoeff(fold: PaperPlaneFold, wingAngleDeg: number, pit
   const baseDrag = fold.baseDragCoeff;
   const wingDrag = Math.abs(wingAngleDeg) / 50 * 0.035;
   const pitchDrag = (pitchDeg * pitchDeg) / (45 * 45) * 0.08;
-  const stall = Math.abs(pitchDeg) > 45 ? 0.14 : 0;
+  const absEff = Math.abs(wingAngleDeg + pitchDeg);
+  const stallAngle = 20;
+  const stall = absEff <= stallAngle
+    ? 0
+    : 0.2 * Math.min(1, (absEff - stallAngle) / 25);
   return baseDrag + wingDrag + pitchDrag + stall;
 }
 

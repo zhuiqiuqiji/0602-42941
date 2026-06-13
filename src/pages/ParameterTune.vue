@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { ArrowLeft, Send, Settings2, RotateCcw } from 'lucide-vue-next';
 import { useGameStore } from '@/stores/gameStore';
@@ -10,15 +11,17 @@ import type { FlightParams } from '@/types';
 const router = useRouter();
 const store = useGameStore();
 
-const localParams = {
+const localParams = reactive<FlightParams>({
   wingAngle: store.flightParams.wingAngle,
   tailAngle: store.flightParams.tailAngle,
   throwPower: store.flightParams.throwPower,
   throwAngle: store.flightParams.throwAngle,
-};
+});
+
+const previewParams = computed(() => ({ ...localParams }));
 
 function updateParam<K extends keyof FlightParams>(key: K, val: FlightParams[K]) {
-  (localParams as Record<string, unknown>)[key] = val;
+  localParams[key] = val;
   store.updateParams({ [key]: val } as Partial<FlightParams>);
 }
 
@@ -109,7 +112,7 @@ function goFly() {
               </g>
             </svg>
             <div class="relative z-10 animate-float w-full px-6">
-              <PlanePreview :fold="FOLDS.find(f => f.id === store.selectedFoldId)!" :params="localParams" :showPitch="true" :size="300" />
+              <PlanePreview :fold="FOLDS.find(f => f.id === store.selectedFoldId)!" :params="previewParams" :showPitch="true" :size="300" />
             </div>
           </div>
 

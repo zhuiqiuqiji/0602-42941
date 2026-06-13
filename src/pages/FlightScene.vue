@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed, watch } from 'vue';
+import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStore } from '@/stores/gameStore';
 import { stepPhysics } from '@/composables/usePhysics';
@@ -384,14 +384,6 @@ function tick(ts: number) {
   render();
   rafId = requestAnimationFrame(tick);
 }
-
-watch(
-  () => store.flightState,
-  (v) => {
-    state.value = { ...v, trail: [] };
-  },
-  { immediate: true }
-);
 
 onMounted(() => {
   resizeCanvas();
