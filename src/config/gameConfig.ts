@@ -1,0 +1,71 @@
+import type { Scene, PaperPlaneFold } from '@/types';
+
+export const SCENES: Scene[] = [
+  {
+    id: 'outdoor-grass',
+    name: '户外草地',
+    type: 'outdoor',
+    skyTop: '#87CEEB',
+    skyBottom: '#E0F4FF',
+    groundColor: '#6BB35F',
+    groundColor2: '#8CCB80',
+    description: '晴朗的蓝天，柔软的草地，最适合纸飞机飞行的经典场景',
+  },
+  {
+    id: 'indoor-room',
+    name: '阳光房间',
+    type: 'indoor',
+    skyTop: '#FFF5E6',
+    skyBottom: '#FFE8CC',
+    groundColor: '#C49A6C',
+    groundColor2: '#D9B38C',
+    description: '温暖的室内，阳光从窗户洒入，在房间里自由飞翔',
+  },
+];
+
+export const FOLDS: PaperPlaneFold[] = [
+  {
+    id: 'dart',
+    name: '经典飞镖',
+    description: '流线型机身，速度快、距离远，是最经典的纸飞机折法',
+    baseLiftCoeff: 0.42,
+    baseDragCoeff: 0.028,
+    baseStability: 0.85,
+    maxSpeedFactor: 1.35,
+    svgPath: 'M0,20 L80,18 L95,20 L80,22 L0,20 Z M80,18 L95,10 L95,20 Z M80,22 L95,30 L95,20 Z M40,20 L55,5 L65,20 Z M40,20 L55,35 L65,20 Z',
+    stats: { lift: 60, speed: 90, stability: 70, distance: 85 },
+  },
+  {
+    id: 'glider',
+    name: '滑翔机',
+    description: '宽大机翼带来出色升力，飞行平稳，滞空时间长',
+    baseLiftCoeff: 0.72,
+    baseDragCoeff: 0.055,
+    baseStability: 1.15,
+    maxSpeedFactor: 0.85,
+    svgPath: 'M10,20 L70,18 L90,20 L70,22 L10,20 Z M70,18 L90,6 L90,20 Z M70,22 L90,34 L90,20 Z M20,20 L50,0 L75,20 Z M20,20 L50,40 L75,20 Z',
+    stats: { lift: 95, speed: 55, stability: 90, distance: 70 },
+  },
+  {
+    id: 'stunt',
+    name: '特技旋风',
+    description: '造型独特，能做出翻滚等特技动作，趣味性十足',
+    baseLiftCoeff: 0.50,
+    baseDragCoeff: 0.045,
+    baseStability: 0.55,
+    maxSpeedFactor: 1.10,
+    svgPath: 'M5,20 L60,10 L80,20 L60,30 L5,20 Z M60,10 L95,5 L80,20 Z M60,30 L95,35 L80,20 Z M30,20 L55,2 L70,20 Z M30,20 L55,38 L70,20 Z',
+    stats: { lift: 70, speed: 75, stability: 40, distance: 60 },
+  },
+  {
+    id: 'distance',
+    name: '世界纪录',
+    description: '破纪录的优化设计，平衡升力与阻力，追求最远飞行距离',
+    baseLiftCoeff: 0.55,
+    baseDragCoeff: 0.022,
+    baseStability: 1.00,
+    maxSpeedFactor: 1.20,
+    svgPath: 'M0,20 L75,17 L92,20 L75,23 L0,20 Z M75,17 L92,8 L92,20 Z M75,23 L92,32 L92,20 Z M35,20 L58,3 L72,20 Z M35,20 L58,37 L72,20 Z',
+    stats: { lift: 75, speed: 85, stability: 80, distance: 95 },
+  },
+];
