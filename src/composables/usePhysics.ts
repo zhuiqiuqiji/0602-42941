@@ -119,8 +119,12 @@ export function getWingProfile(profileId: string): WingProfile {
   return WING_PROFILES[profileId] || WING_PROFILES.flat;
 }
 
+export function getEffectiveWingProfile(fold: PaperPlaneFold): WingProfile {
+  return fold.customWingProfile || getWingProfile(fold.wingProfileId);
+}
+
 export function computeLiftCoeff(fold: PaperPlaneFold, wingAngleDeg: number, pitchDeg: number, speed: number): { CL: number; stallDepth: number; effectiveAngle: number } {
-  const profile = getWingProfile(fold.wingProfileId);
+  const profile = getEffectiveWingProfile(fold);
   const camberLift = profile.camber * 60;
   const effAngle = wingAngleDeg + pitchDeg + camberLift;
   const absEff = Math.abs(effAngle);
@@ -147,7 +151,7 @@ export function computeDragCoeff(
   speed: number,
   liftCoeff: number
 ): number {
-  const profile = getWingProfile(fold.wingProfileId);
+  const profile = getEffectiveWingProfile(fold);
   const baseDrag = fold.baseDragCoeff + profile.dragPenalty;
   const wingDrag = Math.abs(wingAngleDeg) / 50 * 0.04;
   const pitchDrag = (pitchDeg * pitchDeg) / (45 * 45) * 0.09;

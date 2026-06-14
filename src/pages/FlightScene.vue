@@ -3,6 +3,7 @@ import { ref, onMounted, onUnmounted, computed } from 'vue';
 import { useRouter } from 'vue-router';
 import { useGameStore } from '@/stores/gameStore';
 import { stepPhysics } from '@/composables/usePhysics';
+import { COMPETITION_MODES } from '@/config/gameConfig';
 import type { FlightState, WeatherCondition } from '@/types';
 
 const router = useRouter();
@@ -42,6 +43,19 @@ const hud = computed(() => ({
 
 const scene = computed(() => store.selectedScene);
 const fold = computed(() => store.selectedFold);
+
+const competitionRules = computed(() =>
+  COMPETITION_MODES.find(m => m.mode === store.competitionMode)
+);
+
+const timeLimit = computed(() => competitionRules.value?.timeLimitSec || 0);
+const remainingTime = computed(() => {
+  if (timeLimit.value <= 0) return null;
+  return Math.max(0, timeLimit.value - state.value.flightTime);
+});
+const isTimeUp = computed(() =>
+  timeLimit.value > 0 && state.value.flightTime >= timeLimit.value
+);
 
 function resizeCanvas() {
   const canvas = canvasRef.value;
@@ -628,6 +642,15 @@ function tick(ts: number) {
             router.push('/result');
           }, 700);
         }
+      } else if (isTimeUp.value && !finishedFlight) {
+        finishedFlight = true;
+        state.value.velocityX *= 0.3;
+        state.value.velocityY *= 0.3;
+        store.updateFlightState({ ...state.value });
+        store.recordResult();
+        setTimeout(() => {
+          router.push('/result');
+        }, 700);
       }
     }
   }
@@ -703,6 +726,25 @@ onUnmounted(() => {
         <div class="text-center">
           <p class="text-[10px] text-slate-400 mb-0.5">攀升</p>
           <p class="font-display text-base text-emerald-500 leading-none">{{ hud.acrobatics.climbs }}</p>
+        </div>
+      </div>
+
+      <div v-if="remainingTime !== null" class="mb-3 pb-3 border-b border-slate-100">
+        <div class="flex items-center justify-between mb-1">
+          <span class="text-[11px] text-slate-400">剩余时间</span>
+          <span
+            class="text-sm font-bold"
+            :class="remainingTime <= 5 ? 'text-red-500 animate-pulse' : 'text-sky-dark'"
+          >
+            {{ remainingTime.toFixed(1) }}s
+          </span>
+        </div>
+        <div class="w-full h-2 bg-slate-100 rounded-full overflow-hidden">
+          <div
+            class="h-full transition-all duration-100 rounded-full"
+            :class="remainingTime <= 5 ? 'bg-red-500' : 'bg-gradient-to-r from-sky to-accent'"
+            :style="{ width: `${Math.max(0, (remainingTime / timeLimit) * 100)}%` }"
+          ></div>
         </div>
       </div>
 

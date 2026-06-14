@@ -47,6 +47,7 @@ export interface PaperPlaneFold {
   baseStability: number;
   maxSpeedFactor: number;
   wingProfileId: string;
+  customWingProfile?: WingProfile;
   centerOfGravity: CenterOfGravity;
   momentOfInertia: number;
   svgPath: string;

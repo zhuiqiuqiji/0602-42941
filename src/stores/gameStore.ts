@@ -1,6 +1,6 @@
 import { defineStore } from 'pinia';
 import { ref, computed } from 'vue';
-import type { FlightParams, FlightState, ScoreResult, Grade, CompetitionMode, CustomFoldDesign, PaperPlaneFold, WeatherCondition } from '@/types';
+import type { FlightParams, FlightState, ScoreResult, Grade, CompetitionMode, CustomFoldDesign, PaperPlaneFold, WeatherCondition, WingProfile } from '@/types';
 import { FOLDS, SCENES, WEATHERS, GLOBAL_LEADERBOARD_SEED } from '@/config/gameConfig';
 import { calcAcrobaticsScore, WING_PROFILES } from '@/composables/usePhysics';
 
@@ -70,21 +70,47 @@ export function calcScore(
 }
 
 function customFoldToPlaneFold(design: CustomFoldDesign): PaperPlaneFold {
-  const wingFactor = (design.wingProfile.aspectRatio || 2.5) / 3;
-  const liftCoeff = 0.4 * wingFactor + 0.2 * (design.wingProfile.camber || 0) * 10;
-  const dragCoeff = 0.03 + 0.02 * (design.paperWeight / 80);
+  const aspectRatio = design.wingProfile.aspectRatio || 2.5;
+  const camber = design.wingProfile.camber || 0.05;
+  const sweepAngle = design.wingProfile.sweepAngle || 10;
+  const thicknessRatio = design.wingProfile.thicknessRatio || 0.03;
+  const tipShape = (design.wingProfile.tipShape as WingProfile['tipShape']) || 'square';
+
+  const liftCurve = 0.7 + camber * 3 + (aspectRatio - 2) * 0.15;
+  const dragPenalty = thicknessRatio * 0.2 + Math.abs(sweepAngle - 15) * 0.0003;
+  const stallAngle = 18 - Math.abs(camber) * 40 - sweepAngle * 0.2 + thicknessRatio * 50;
+
+  const customWingProfile: WingProfile = {
+    id: `custom-${design.id}`,
+    name: design.name,
+    camber,
+    thicknessRatio,
+    aspectRatio,
+    sweepAngle,
+    tipShape,
+    liftCurve: Math.max(0.5, Math.min(1.5, liftCurve)),
+    dragPenalty: Math.max(0, Math.min(0.03, dragPenalty)),
+    stallAngle: Math.max(10, Math.min(35, stallAngle)),
+  };
+
+  const wingFactor = aspectRatio / 3;
+  const liftCoeff = 0.4 * wingFactor + 0.2 * camber * 10;
+  const dragCoeff = 0.03 + 0.02 * (design.paperWeight / 80) + dragPenalty;
   const stability = 0.6 + 0.8 * Math.abs(design.centerOfGravity.x - 0.5);
-  const speedFactor = 0.8 + 0.4 * (design.bodyLength / 18);
+  const speedFactor = 0.8 + 0.4 * (design.bodyLength / 18) - sweepAngle * 0.004;
+
   return {
     id: design.id,
     name: design.name,
     description: '自定义折法',
     category: 'custom',
+    difficulty: 3,
     baseLiftCoeff: Math.max(0.3, Math.min(0.9, liftCoeff)),
     baseDragCoeff: Math.max(0.015, Math.min(0.07, dragCoeff)),
     baseStability: Math.max(0.2, Math.min(1.4, stability)),
     maxSpeedFactor: Math.max(0.6, Math.min(1.6, speedFactor)),
-    wingProfileId: design.wingProfile.id || 'flat',
+    wingProfileId: 'flat',
+    customWingProfile,
     centerOfGravity: design.centerOfGravity,
     momentOfInertia: 0.08,
     svgPath: 'M0,20 L80,18 L95,20 L80,22 L0,20 Z M80,18 L95,10 L95,20 Z M80,22 L95,30 L95,20 Z M40,20 L55,5 L65,20 Z M40,20 L55,35 L65,20 Z',
@@ -154,26 +180,90 @@ export const useGameStore = defineStore('game', () => {
     [...highScores.value].sort((a, b) => b.totalScore - a.totalScore).slice(0, 10)
   );
 
+  function seededRandom(seed: number): number {
+    const x = Math.sin(seed) * 10000;
+    return x - Math.floor(x);
+  }
+
+  function getDailySeed(): number {
+    const now = new Date();
+    return now.getFullYear() * 10000 + (now.getMonth() + 1) * 100 + now.getDate();
+  }
+
+  function generateDynamicLeaderboard(): ScoreResult[] {
+    const dailySeed = getDailySeed();
+    const basePlayers = GLOBAL_LEADERBOARD_SEED.map((s, i) => {
+      const seed = dailySeed + i * 137;
+      const scoreVariation = (seededRandom(seed) - 0.5) * 40;
+      const distVariation = (seededRandom(seed + 1) - 0.5) * 6;
+      const timeVariation = (seededRandom(seed + 2) - 0.5) * 1.2;
+      const acroVariation = Math.round((seededRandom(seed + 3) - 0.5) * 30);
+      const newScore = Math.max(500, Math.round(s.totalScore + scoreVariation));
+      const grades: ScoreResult['grade'][] = ['S', 'A', 'B', 'C', 'D'];
+      const gradeIdx = Math.min(4, Math.max(0, Math.floor((1000 - newScore) / 120)));
+      return {
+        id: `global-${i}`,
+        distance: Math.max(10, s.distance + distVariation),
+        airTime: Math.max(3, s.airTime + timeVariation),
+        totalScore: newScore,
+        acrobaticsScore: Math.max(0, (s.acrobaticsScore || 0) + acroVariation),
+        grade: grades[gradeIdx],
+        timestamp: Date.now() - i * 86400000 - Math.round(seededRandom(seed + 4) * 86400000),
+        foldId: '',
+        foldName: s.foldName,
+        sceneId: '',
+        playerName: s.playerName,
+        country: s.country,
+        isGlobal: true,
+      } as ScoreResult;
+    });
+
+    const extraNames = [
+      'WindWalker', 'SkyDreamer', 'PaperPilot', 'CloudChaser', 'GlideMaster',
+      'WingDesigner', 'ThrowKing', 'Airborne', 'SoarHigh', 'FloatOn',
+      '纸飞机达人', '飞行少年', '云端漫步', '风之子', '蓝天翱翔',
+      'AeroDynamic', 'Velocity', 'LiftOff', 'LoopMaster', 'DiveBomber'
+    ];
+    const countries = ['🇺🇸', '🇯🇵', '🇩🇪', '🇫🇷', '🇬🇧', '🇨🇦', '🇦🇺', '🇧🇷', '🇰🇷', '🇨🇳'];
+    const folds = ['经典飞镖', '滑翔机', '世界纪录', '特技旋风', '宽翼大鹏'];
+    const extraPlayers: ScoreResult[] = [];
+
+    for (let i = 0; i < 12; i++) {
+      const seed = dailySeed + 1000 + i * 97;
+      const baseScore = 580 + i * 8;
+      const scoreVariation = (seededRandom(seed) - 0.5) * 60;
+      const totalScore = Math.max(500, Math.round(baseScore + scoreVariation));
+      const distance = 25 + (20 - i) * 2 + (seededRandom(seed + 1) - 0.5) * 8;
+      const airTime = 6 + (20 - i) * 0.4 + (seededRandom(seed + 2) - 0.5) * 1;
+      const acrobaticsScore = Math.round(seededRandom(seed + 3) * 350);
+      const grades: ScoreResult['grade'][] = ['S', 'A', 'B', 'C', 'D'];
+      const gradeIdx = Math.min(4, Math.max(0, Math.floor((1000 - totalScore) / 120)));
+      extraPlayers.push({
+        id: `global-extra-${i}`,
+        distance: Math.max(10, distance),
+        airTime: Math.max(3, airTime),
+        totalScore,
+        acrobaticsScore,
+        grade: grades[gradeIdx],
+        timestamp: Date.now() - (15 + i) * 86400000,
+        foldId: '',
+        foldName: folds[Math.floor(seededRandom(seed + 4) * folds.length)],
+        sceneId: '',
+        playerName: extraNames[i % extraNames.length],
+        country: countries[Math.floor(seededRandom(seed + 5) * countries.length)],
+        isGlobal: true,
+      } as ScoreResult);
+    }
+
+    return [...basePlayers, ...extraPlayers].sort((a, b) => b.totalScore - a.totalScore).slice(0, 30);
+  }
+
   const globalLeaderboard = computed<ScoreResult[]>(() => {
-    const seeded = GLOBAL_LEADERBOARD_SEED.map((s, i) => ({
-      id: `global-${i}`,
-      distance: s.distance,
-      airTime: s.airTime,
-      totalScore: s.totalScore,
-      acrobaticsScore: s.acrobaticsScore,
-      grade: s.grade,
-      timestamp: Date.now() - i * 86400000,
-      foldId: '',
-      foldName: s.foldName,
-      sceneId: '',
-      playerName: s.playerName,
-      country: s.country,
-      isGlobal: true,
-    } as ScoreResult));
+    const globalPlayers = generateDynamicLeaderboard();
     const myBest = highScores.value
       .filter(s => s.totalScore >= 600)
       .map(s => ({ ...s, isGlobal: false, playerName: playerName.value, country: '🏠' }));
-    return [...seeded, ...myBest].sort((a, b) => b.totalScore - a.totalScore).slice(0, 20);
+    return [...globalPlayers, ...myBest].sort((a, b) => b.totalScore - a.totalScore).slice(0, 30);
   });
 
   function setPlayerName(name: string) {
