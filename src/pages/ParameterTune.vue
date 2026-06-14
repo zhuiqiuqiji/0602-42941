@@ -1,12 +1,18 @@
 <script setup lang="ts">
 import { reactive, computed } from 'vue';
 import { useRouter } from 'vue-router';
-import { ArrowLeft, Send, Settings2, RotateCcw } from 'lucide-vue-next';
-import { useGameStore } from '@/stores/gameStore';
+import { ArrowLeft, Send, Settings2, RotateCcw, Trophy } from 'lucide-vue-next';
+import { useGameStore, calcScore } from '@/stores/gameStore';
 import ParamSlider from '@/components/ParamSlider.vue';
 import PlanePreview from '@/components/PlanePreview.vue';
-import { FOLDS } from '@/config/gameConfig';
+import { FOLDS, COMPETITION_MODES } from '@/config/gameConfig';
 import type { FlightParams } from '@/types';
+
+const competitionModeLabels: Record<string, string> = {
+  distance: '距离赛',
+  airtime: '滞空赛',
+  acrobatic: '特技赛',
+};
 
 const router = useRouter();
 const store = useGameStore();
@@ -19,6 +25,23 @@ const localParams = reactive<FlightParams>({
 });
 
 const previewParams = computed(() => ({ ...localParams }));
+
+const scorePreview = computed(() => {
+  const estDistance = localParams.throwPower * 0.5;
+  const estAirTime = localParams.throwPower * 0.1;
+  const estAcrobatics = 0;
+  const result = calcScore(estDistance, estAirTime, estAcrobatics, store.competitionMode);
+  return {
+    estDistance,
+    estAirTime,
+    estAcrobatics,
+    ...result,
+  };
+});
+
+const competitionRules = computed(() =>
+  COMPETITION_MODES.find(m => m.mode === store.competitionMode) || COMPETITION_MODES[3]
+);
 
 function updateParam<K extends keyof FlightParams>(key: K, val: FlightParams[K]) {
   localParams[key] = val;
@@ -77,13 +100,22 @@ function goFly() {
 
       <div class="grid grid-cols-1 lg:grid-cols-5 gap-8">
         <div class="lg:col-span-3 card p-6 md:p-8 animate-fade-up" style="animation-delay:0.05s">
-          <div class="flex items-center justify-between mb-6">
-            <div>
-              <h2 class="font-display text-2xl text-slate-800 mb-1 tracking-wide">实时预览</h2>
-              <p class="text-sm text-slate-500">
-                折法：<span class="font-semibold text-sky-dark">{{ store.selectedFold.name }}</span>
-                · 场景：<span class="font-semibold text-sky-dark">{{ store.selectedScene.name }}</span>
-              </p>
+          <div class="mb-6">
+            <div class="flex items-center justify-between mb-3">
+              <h2 class="font-display text-2xl text-slate-800 tracking-wide">实时预览</h2>
+            </div>
+            <div class="flex flex-wrap items-center gap-3 mb-4">
+              <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-sky-light/30 text-sm">
+                ✈️ 折法：<span class="font-semibold text-sky-dark">{{ store.selectedFold.name }}</span>
+              </div>
+              <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-grass/20 text-sm">
+                🌳 场景：<span class="font-semibold text-grass-dark">{{ store.selectedScene.name }}</span>
+              </div>
+              <div class="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-xl bg-accent/20 text-sm">
+                <span class="text-base">{{ store.selectedWeather.icon }}</span>
+                <span class="font-semibold text-accent-dark">{{ store.selectedWeather.name }}</span>
+                <span class="text-slate-500 text-xs">风速 {{ store.selectedWeather.windSpeed.toFixed(1) }}m/s · 湿度 {{ store.selectedWeather.humidity }}%</span>
+              </div>
             </div>
           </div>
 
@@ -112,7 +144,7 @@ function goFly() {
               </g>
             </svg>
             <div class="relative z-10 animate-float w-full px-6">
-              <PlanePreview :fold="FOLDS.find(f => f.id === store.selectedFoldId)!" :params="previewParams" :showPitch="true" :size="300" />
+              <PlanePreview :fold="store.selectedFold" :params="previewParams" :showPitch="true" :size="300" />
             </div>
           </div>
 
@@ -138,7 +170,18 @@ function goFly() {
 
         <div class="lg:col-span-2 space-y-6">
           <div class="card p-6 md:p-8 space-y-6 animate-fade-up" style="animation-delay:0.1s">
-            <h2 class="font-display text-2xl text-slate-800 mb-1 tracking-wide">参数设置</h2>
+            <div class="flex items-center justify-between mb-2">
+              <h2 class="font-display text-2xl text-slate-800 tracking-wide">参数设置</h2>
+              <span
+                v-if="store.competitionMode !== 'free'"
+                class="inline-flex items-center gap-1.5 px-3 py-1 rounded-full
+                       bg-accent text-white text-xs font-medium shadow-soft"
+              >
+                <Trophy :size="12" />
+                {{ competitionModeLabels[store.competitionMode] }}
+                <span class="ml-0.5 opacity-90">· 第 {{ store.currentRound }}/{{ competitionRules.rounds }} 轮</span>
+              </span>
+            </div>
 
             <ParamSlider
               label="机翼角度"
@@ -203,6 +246,44 @@ function goFly() {
               <li>· 投掷角度 30°~45° 通常能兼顾距离和滞空</li>
               <li>· 稳定性差的折法适合做特技动作哦</li>
             </ul>
+          </div>
+
+          <div class="card p-5 animate-fade-up" style="animation-delay:0.3s">
+            <h4 class="font-semibold text-slate-700 mb-3">🎯 评分预览</h4>
+            <div class="mb-3 flex items-center justify-between">
+              <span class="text-sm text-slate-500">预估总分</span>
+              <div class="flex items-center gap-2">
+                <span class="font-display text-3xl text-sky-dark">{{ scorePreview.totalScore }}</span>
+                <span
+                  class="w-8 h-8 rounded-full flex items-center justify-center font-bold text-sm"
+                  :class="{
+                    'bg-gradient-to-br from-yellow-300 to-yellow-500 text-white': scorePreview.grade === 'S',
+                    'bg-gradient-to-br from-sky-400 to-sky-600 text-white': scorePreview.grade === 'A',
+                    'bg-gradient-to-br from-grass to-grass-dark text-white': scorePreview.grade === 'B',
+                    'bg-gradient-to-br from-orange-300 to-orange-500 text-white': scorePreview.grade === 'C',
+                    'bg-gradient-to-br from-slate-300 to-slate-500 text-white': scorePreview.grade === 'D',
+                  }"
+                >{{ scorePreview.grade }}</span>
+              </div>
+            </div>
+            <div class="grid grid-cols-3 gap-2 text-center">
+              <div class="rounded-xl bg-sky-light/30 p-3">
+                <p class="text-xs text-slate-500 mb-0.5">距离</p>
+                <p class="font-display text-lg text-sky-dark">{{ scorePreview.estDistance.toFixed(1) }}m</p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ scorePreview.distanceScore }} 分</p>
+              </div>
+              <div class="rounded-xl bg-accent/20 p-3">
+                <p class="text-xs text-slate-500 mb-0.5">滞空</p>
+                <p class="font-display text-lg text-accent-dark">{{ scorePreview.estAirTime.toFixed(1) }}s</p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ scorePreview.airTimeScore }} 分</p>
+              </div>
+              <div class="rounded-xl bg-purple-400/20 p-3">
+                <p class="text-xs text-slate-500 mb-0.5">花式</p>
+                <p class="font-display text-lg text-purple-600">{{ scorePreview.estAcrobatics }}</p>
+                <p class="text-xs text-slate-400 mt-0.5">{{ scorePreview.acrobaticsScore }} 分</p>
+              </div>
+            </div>
+            <p class="text-xs text-slate-400 mt-3 text-center">* 实际成绩以飞行结果为准</p>
           </div>
         </div>
       </div>

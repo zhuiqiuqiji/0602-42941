@@ -6,7 +6,12 @@ import FlightScene from '@/pages/FlightScene.vue'
 import ScoreResult from '@/pages/ScoreResult.vue'
 
 const routes = [
-  { path: '/', name: 'scene', component: SceneSelect, meta: { title: '选择场景' } },
+  { path: '/', name: 'home', component: () => import('@/pages/HomePage.vue'), meta: { title: '首页' } },
+  { path: '/home', name: 'home-page', component: () => import('@/pages/HomePage.vue'), meta: { title: '首页' } },
+  { path: '/compete', name: 'compete', component: () => import('@/pages/CompeteMode.vue'), meta: { title: '比赛模式' } },
+  { path: '/design', name: 'design', component: () => import('@/pages/DesignEditor.vue'), meta: { title: '设计编辑器' } },
+  { path: '/leaderboard', name: 'leaderboard', component: () => import('@/pages/Leaderboard.vue'), meta: { title: '排行榜' } },
+  { path: '/scene', name: 'scene', component: SceneSelect, meta: { title: '选择场景' } },
   { path: '/fold', name: 'fold', component: FoldSelect, meta: { title: '选择折法' } },
   { path: '/tune', name: 'tune', component: ParameterTune, meta: { title: '调整参数' } },
   { path: '/fly', name: 'fly', component: FlightScene, meta: { title: '飞行中' } },
